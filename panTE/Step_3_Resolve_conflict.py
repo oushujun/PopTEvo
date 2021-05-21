@@ -17,19 +17,15 @@ def listToString(s):
 
 # Function to print the intersection
 def findIntersection(intervals,N):
- 
     # First interval
     l = intervals[0][0]
     r = intervals[0][1]
- 
     # Check rest of the intervals
     # and find the intersection
     for i in range(1,N):
- 
         # If no intersection exists
         if (intervals[i][0] > r or intervals[i][1] < l):
             return("no intersection")
- 
         # Else update the intersection
         else:
             l = max(l, intervals[i][0])
