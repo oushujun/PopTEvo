@@ -118,16 +118,7 @@ for vcf in *.vcf; do
   ./nameCleaner.sh $vcf;
 done
 ```
-To process this in Tassel (converting vcf to ABH format), we will need files with parent names (two text files for each cross, each with single line, listing the parent used in the cross)
 
-```bash
-for vcf in *_cleaned.vcf; do
-  A=$(grep "^#CHROM" $f |cut -f 10);
-  B=$(grep "^#CHROM" $f |cut -f 11);
-  echo $A > $A.txt;
-  echo $B > $B.txt;
-done
-```
 Compress the files
 
 ```bash
