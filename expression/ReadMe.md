@@ -1,3 +1,6 @@
+## Files explained
+family_sum_combined_counts_allNAM_15Jun21.txt.gz, raw count table for all TE families. Read counts for all genes is summarized in the entry `Gene`.
+
 ## RNAseq mapping and counts
 
 ### Reads 
