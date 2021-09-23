@@ -1,6 +1,8 @@
 ## Files explained
-list	A list of genomes for pairwise calculations
-*pass.list.count.xls	Pairwise syntenic LTR information
+list, A list of genomes for pairwise calculations
+
+*pass.list.count.xls, Pairwise syntenic LTR information
+
 
 Rename chr names with genome ID
 
