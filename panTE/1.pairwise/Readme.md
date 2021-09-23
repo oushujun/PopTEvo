@@ -28,14 +28,15 @@ There are some utility commands in `../bin/memo` for running, checking, cancelli
 3. Synteny_LTR: Chr/Scaffold information of the syntenic LTR (itself or on the other genome)
 4. Syntenic_info: [Flanking://Full:]   provides coordinates of the syntenic locus, not bp-accurate
 5. Examples:
-`Intact_LTR      Identity        Synteny_scaff   Synteny_part    Synteny_LTR     Total_match     Syntenic_info
+```
+Intact_LTR      Identity        Synteny_scaff   Synteny_part    Synteny_LTR     Total_match     Syntenic_info
 Oh7b_chr10:54170076..54178592   0.9669  2       2       Oh7b_chr10,NC350_chr10  2       Sync_Chr:NC350_chr10|Site_type:Full|Site_info:[Flanking://Full:NC350_chr10:98810839..98837298]  
 NC350_chr9:126054763..126058744 0.9815  1       1       NC350_chr9      2       Sync_Chr:Oh7b_chr9|Site_type:Flanking|Site_info:[Flanking:Oh7b_chr9:165085357..165085897//Full:]        
 NC350_chr1:95665945..95673403   0.9896  2       2       NC350_chr1,Oh7b_chr1    2       Sync_Chr:Oh7b_chr1|Site_type:Full|Site_info:[Flanking://Full:Oh7b_chr1:96630070..96637528]      
 Oh7b_chr6:168443232..168455705  0.9926  1       2       Oh7b_chr6       1       Sync_Chr:NC350_chr6|Site_type:Part|Site_info:[Flanking://Full:] 
 Oh7b_chr4:130587867..130595046  0.9978  2       2       Oh7b_chr4,NC350_chr4    2       Sync_Chr:NC350_chr4|Site_type:Full|Site_info:[Flanking://Full:NC350_chr4:130875145..130882325]  
 Oh7b_chr9:149605376..149611545  0.9668  1       1       Oh7b_chr9       2       Sync_Chr:NC350_chr9|Site_type:Flanking|Site_info:[Flanking:NC350_chr9:107949422..107949874//Full:] 
-`
+```
 
 Get perfect syntenic pairs
 
