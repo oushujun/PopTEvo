@@ -1,6 +1,7 @@
 ## Files explained
-meth*UMR_chr.bed	UMRs of each genome, obtained from Hufford et al. (2021).
-NAM26.intact.lLTR.UMR.nostart	All UM-LTRs originated within 5-LTRs.
+meth*UMR_chr.bed, UMRs of each genome, obtained from Hufford et al. (2021).
+
+NAM26.intact.lLTR.UMR.nostart, All UM-LTRs originated within 5-LTRs.
 
 
 Get bed files for left LTR (strand oriented)
