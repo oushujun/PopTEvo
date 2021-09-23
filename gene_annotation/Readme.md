@@ -1,15 +1,20 @@
 ## Files explained
 
-*.1.gff3.gz	Gene annotations in GFF3 format, obtained from Hufford et al. (2021)
-
+\*.1.gff3.gz	Gene annotations in GFF3 format, obtained from Hufford et al. (2021)
 *.1.cds.fa.gz	CDS of each annotated gene in FASTA format, obtained from Hufford et al. (2021)
 
 *.1.cds.fa.TElist	A list of TE-related genes
+
 *.1.gff3.gene.bed.noTE	A list of non-TE related genes in BED format
+
 *_class2.gtf.gz	Transcriptom assembly using Class2 in GTF format, obtained from Hufford et al. (2021)
+
 *_Cufflinks.gtf.gz	Transcriptom assembly using Cufflinks in GTF format, obtained from Hufford et al. (2021)
+
 *_Strawberry.gtf.gz	Transcriptom assembly using Strawberry in GTF format, obtained from Hufford et al. (2021)
+
 *_Stringtie.gtf.gz	Transcriptom assembly using Strawberry in GTF format, obtained from Hufford et al. (2021)
+
 NAM_all.transcripts.intersect.90reciprocal.uniq2	NAM TE annotations that overlap ≥ 90% with at least one transcriptom assembly reciprocally.
 
 
