@@ -1,8 +1,3 @@
-
-
-From BAM to raw count table: https://github.com/SNAnderson/maizeTEexpression/tree/master/NAM_2021
-
-
 ## RNAseq mapping and counts
 
 ### Reads 
@@ -36,3 +31,6 @@ Mapping was performed using the [`runHISAT2.sh`](scripts/runHISAT2.sh), which wa
 ```bash
 while read line; do ./job-submit.sh $line; done<genomes.fofn
 ```
+
+### From BAM to raw count table
+Follow scripts and protocal here: https://github.com/SNAnderson/maizeTEexpression/tree/master/NAM_2021
