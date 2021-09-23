@@ -1,0 +1,91 @@
+#make genome softlink
+for i in `cat ../../NAM_canu1.8/verified/list`; do ln -s /home/oushujun/jfw/TE/MaizeNAM/NAM_canu1.8/verified/$i $i; done
+for i in `cat list`; do ln -s  /work/LAS/jfw-lab/oushujun/TE/MaizeNAM/NAM_canu1.8/verified/$i ./; done
+
+#rename chr names with genome ID
+for i in `cat list`; do perl -i -slane ' s/chr/${ID}_chr/; s/${ID}${ID}/$ID/; print $_ ' -- -ID=$(echo $i|perl -nle 's/\..*//; print $_') $i.pass.list & done &
+
+#batch cancel jobs
+sacct --format="JobID,JobName%60,End"|grep Unknown|tail -100 > job.list
+for i in `awk '{print $1}' job.list`; do scancel $i; done
+
+#find unready genomes
+for i in `perl -nle 's/.*\///; s/\..*//; print $_' ../../NAM_canu1.8/Arun/list.left`; do grep $i <(sacct --format="JobID,JobName%60,End"|grep Unknown|grep syntenic); done > job.list2
+for i in `awk '{print $1}' job.list2`; do scancel $i; done
+
+#cancel running jobs
+for i in `perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 <(sacct --format="JobID,JobName%60,End"|grep Unknown|grep synte) 1 <(squeue -u oushujun|grep R)|awk '{print $1}'`; do scancel $i; done
+
+#cancel running jobs with exclude list (list.ex)
+for i in `perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 <(perl ~/las/git_bin/EDTA/util/output_by_list.pl 2 <(sacct --format="JobID,JobName%60,End"|grep Unknown|grep synte) 1 list.ex -ex) 1 <(squeue -u oushujun|awk '{if ($5 == "R") print $0}') | awk '{print $1}'`; do scancel $i; done
+
+#cancel finished jobs
+for i in `perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 <(perl ~/las/git_bin/EDTA/util/output_by_list.pl 2 <(sacct --format="JobID,JobName%60,End"|grep Unknown|grep qsub|perl -nle 's/\.qsub//; s/worker.syntenic.//; s/\./_/; print $_') 1 <(find ./ -mmin -1|perl -nle 's/\.\///; s/_cmb.*//; print $_') -ex) 1 <(squeue -u oushujun|awk '{if ($5 == "R") print $0}') | awk '{print $1}'`; do scancel $i ; done
+
+#cancel based on list of job names
+for i in `perl ~/las/git_bin/EDTA/util/output_by_list.pl 2 <(sacct --format="JobID,JobName%60,End"|grep Unknown) 1 <(cat list.sam list.maggie) |awk '{print $1}'`; do scancel $i; done
+
+#test job
+nohup perl ~/las/git_bin/LTRevo/Genome_Timer3.1.pl -f CML277.pseudomolecules-v1.fasta -f NC358.pseudomolecules-v1.fasta -dup 1 -ploidy 2 -len 500 -t 36 &
+ll CML277_NC358_cmb.fa*
+
+#filter blast out
+for i in `ls *fa.out`; do echo $i|perl -nle 's/.pass.blast.500bp.fa.out//; print $_'; done > list.finished
+for i in `cat list.finished`; do perl ~/las/git_bin/LTRevo/filter_homeolog.pl -pair $i.pairing -pass $i.pass.list -blast $i.pass.blast.500bp.fa.out -ds 100000 -df 500 -dup 1 -ploidy 2 & done
+
+# find unfinished files
+for i in *fa.out; do echo -n "$i "; tail -2 $i|perl -nle 'next if /^\s+/; $i++; next if $i>1; my $loc=$1 if /:([0-9]+)\./; print "$loc\t$_"'; done|awk '{if ($2<148000000) print $0}'|less -S
+for i in *filtered; do echo -n "$i "; tail -2 $i|perl -nle 'next if /^\s+/; $i++; next if $i>1; my $loc=$1 if /:([0-9]+)\./; print "$loc\t$_"'; done|awk '{if ($2<145000000) print $0}'|less -S
+
+# find unfinished jobs
+perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 <(ls worker.syntenic.*) 1 <(ls *fa.out|perl -nle 's/_/./; s/\.AB10_/_AB10./; $_="worker.syntenic.$_"; s/_cmb.fa.pass.blast.500bp.fa.out/.qsub/; print $_') -ex|less
+
+# test filting
+perl ~/las/git_bin/LTRevo/filter_homeolog.pl -pair Tx303_Tzi8_cmb.fa.pairing -pass Tx303_Tzi8_cmb.fa.pass.list -blast test.out -ds 100000 -df 500 -dup 1 -ploidy 2 &
+perl ~/las/git_bin/LTRevo/filter_homeolog.pl -pair Tx303_Tzi8_cmb.fa.pairing -pass Tx303_Tzi8_cmb.fa.pass.list -blast Tx303_Tzi8_cmb.fa.pass.blast.500bp.fa.out -ds 100000 -df 500 -dup 1 -ploidy 2 &
+
+perl ~/las/git_bin/LTRevo/filter_homeolog.pl -pair test.pairing -pass test.pass.list -blast test.out -ds 100000 -df 500 -dup 1 -ploidy 2 &
+#line 11537191 is problematic
+
+# convert job names and filtered names
+for i in worker.filter.*; do echo $i|perl -nle 's/worker.filter.//; s/\./_/; s/.qsub/_cmb.fa.pass.list.blast.filtered/; print $_'; done|less
+for i in *filtered; do echo $i|perl -nle 's/_cmb.fa.pass.list.blast.filtered/.qsub/; if (/B73_AB10/){s/B73_AB10_/B73_AB10./} else {s/_/./}; print "worker.filter.$_"'; done|less
+
+#submit unstarted jobs
+for i in `perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 <(ls worker.filter.*) 1 <(for i in *filtered; do echo $i|perl -nle 's/_cmb.fa.pass.list.blast.filtered/.qsub/; if (/B73_AB10/){s/B73_AB10_/B73_AB10./} else {s/_/./}; print "worker.filter.$_"'; done) -ex`; do sbatch $i & done
+
+#batch cancel pending jobs and rerun in a node
+sacct --format="JobID,JobName%60,State"|grep PEN|head -15 > list.work
+for i in `awk '{print $1}' list.work`; do scancel $i & done
+for i in `awk '{print $2}' list.work`; do nohup sh $i & done
+for i in `awk '{print $2}' list.work`; do echo $i|perl -nle 's/worker.filter.//; s/\./_/; s/.qsub/_cmb.fa.pass.list.blast.filtered/; print $_'; done|for j in `cat -`; do ll $j ; done
+
+#regional ibs tracks
+perl ~/las/git_bin/LTRevo/window_divergence.pl B73_P39_cmb.fa.pass.list.count.xls B73_P39_cmb.fa > B73_P39_cmb.fa.pass.list.count.xls.10M.ibd &
+for i in `ll *count.xls|awk '{if ($5>10000) print $9}'|perl -nle 's/.pass.list.count.xls//; print $_'`; do perl ~/las/git_bin/LTRevo/window_divergence.pl $i.pass.list.count.xls $i > $i.pass.list.count.xls.10M.ibd & done
+for i in `perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 <(ll *count.xls|awk '{if ($5>10000) print $9}'|perl -nle 's/.pass.list.count.xls//; print $_') 1 <(ll *count.xls.10M.ibd|awk '{if ($5>10000) print $9}'|perl -nle 's/.pass.list.count.xls.10M.ibd//; print $_') -ex`; do perl ~/las/git_bin/LTRevo/window_divergence.pl $i.pass.list.count.xls $i > $i.pass.list.count.xls.10M.ibd & done
+#run 36 jobs in a time
+for i in `perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 <(ll *count.xls|awk '{if ($5>10000) print $9}'|perl -nle 's/.pass.list.count.xls//; print $_') 1 <(ll *count.xls.10M.ibd|awk '{if ($5>10000) print $9}'|perl -nle 's/.pass.list.count.xls.10M.ibd//; print $_') -ex|head -36`; do perl ~/las/git_bin/LTRevo/window_divergence.pl $i.pass.list.count.xls $i > $i.pass.list.count.xls.10M.ibd & done
+
+# get combined tracks yonger than 10ka (u=4.89e-8, Jiao et al 2014)
+for i in *count.xls.10M.ibd; do awk '{if ($5<=0.001)print $0}' $i | perl ~/las/git_bin/EDTA/util/combine_overlap.pl - $i.10k.cmb & done
+# 10ka-20ka
+for i in *count.xls.10M.ibd; do awk '{if ($5>0.001 && $5<=0.002)print $0}' $i | perl ~/las/git_bin/EDTA/util/combine_overlap.pl - $i.10k-20k.cmb & done
+
+# check filtered files in a worknode
+for i in `ps aux|grep time|awk '{print $18}'`; do ll $i.blast.filtered; done
+
+# fix B73 sequence naming issue and rerun
+for i in `ll B73_*pass.list|grep -v AB10|awk '{print $9}'` B73_AB10_B73_cmb.fa.pass.list; do perl -i -nle 's/^chr/B73_chr/; print $_' $i & done
+
+# rerun unfinished jobs on filtered blast out files
+ll *count.xls|awk '{if ($5==0)print $9}'|perl -nle 's/.pass.list.count.xls//; print $_' > list.resub
+for i in `cat list.resub`; do nohup /usr/bin/time -v perl /work/LAS/mhufford-lab/oushujun/git_bin/LTRevo/filter_homeolog.pl -pair $i.pairing -pass $i.pass.list -blast $i.pass.list.blast.filtered -ds 100000 -df 500 -dup 1 -ploidy 2 -maxlen 500 & done
+
+# generate pariwise distance matrix
+perl ~/las/git_bin/LTRevo/summary_pairwise.pl list &
+
+# combine all ibd info
+for i in `ls *ibd`; do perl -snale '$name=~s/\./\t/; print "$name\t$_"' -- -name=$(echo $i |perl -nle 's/_cmb.*//; if (/B73_AB10/i){s/B73_AB10_/B73_AB10./} else {s/_/./} print $_') $i; done > NAM27.syntenicLTR.10M.ibd.txt &
+perl -i -nle 's/MS71/Ms71/g; s/IL14H/Il14H/g; print $_' NAM27.syntenicLTR.10M.ibd.txt
+

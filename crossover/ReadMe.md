@@ -129,7 +129,7 @@ mv *.vcf.gz ./orig-vcf/
 
 ## Lifting over to NAM coordinates
 
-Download the v4 reference, whcih these VCF files are based on (`Zm-B73-REFERENCE-GRAMENE-4.0.fa`), form [MaizeGDB]().
+Download the v4 reference, which these VCF files are based on (`Zm-B73-REFERENCE-GRAMENE-4.0.fa`), form [MaizeGDB]().
 
 ```bash
 # prepare v4
@@ -142,6 +142,7 @@ gunzip Zm-B73-REFERENCE-NAM-5.0.fa.gz
 hisat2-build -p 36 Zm-B73-REFERENCE-NAM-5.0.fa B73-v5
 ```
 
+Extract 100bp flanking sequence of each SNP from B73v4 and map to B73v5
 
 ```bash
 for f in *.vcf; do grep -v "^##" $f |cut -f 1-4 > $f.1; done
@@ -150,6 +151,11 @@ rename .vcf.1.2 .bed *.vcf.1.2
 for f in *.bed; do bedtools getfasta -fi B73-v4.fa -fo ${f%.*}.fasta -bed $f -name; done
 for f in *_cleaned.fasta; do hisat2 -p 12 --mp 1,1 --no-softclip -f -x B73-v5 -U ${f}  1> ${f%.*}_B73-v5.sam 2> ${f%.*}_mapping_stats.txt; done
 for f in *.sam; do ./sam2bed.sh $f; done
+```
+
+Filter mapping results and get final vcf files in B73v5 coordinates
+
+```bash
 mkdir process-bed
 cd process-bed/
 for f in ../*_cleaned_B73-v5.bed; do awk '$3-$2==100' $f > $f.1; done
@@ -168,4 +174,64 @@ for f in *_cleaned.vcf.1; do g=$(echo $f |sed 's/.vcf.1//g'); cat $f ${g}_shuf.t
 gzip *_cleaned_B73v5.vcf
 mkdir ../VCF_files.v5
 mv *_cleaned_B73v5.vcf.gz ../VCF_files.v5/
+```
+
+## Get crossover density for each intact LTR elements
+
+Get crossover position on B73v5 and combine all genomes
+
+```bash
+for i in *vcf.gz; do \
+	zcat < $i|grep -v '#' -|awk '{print $1"\t"$3"\t"$2}' > $(echo $i|sed 's/.vcf.gz//').pos & \
+done
+
+for i in *pos; do \
+	id=$(echo $i|sed 's/_cleaned_B73v5.pos//;'); \
+	perl -slane 'my $chr=(split)[0]; print "$id $_" if $chr =~ /^chr[0-9]+$/' -- -id=$id $i; \
+done > NAM.crossover.B73v5.pos &
+```
+
+Estimate crossover density using R and obtain the `NAM.rrate_v5.txt.mod` file
+
+```bash
+Rscript crossover_density.R
+
+
+perl -nle 's/Hp301/HP301/gi; s/MS71/Ms71/gi; next if /pos/; my ($pan, $chr, $pos, $den) = (split); \
+	$pan=~s/B73x//i; $chr = "${pan}_chr$chr" if $chr=~/[0-9]+/; $pos = sprintf("%.10g", $pos); \
+	my $to = $pos+1; print "$chr\t$pos\t$to\t$pan\t$den"' NAM.rrate_v5.txt > NAM.rrate_v5.txt.mod
+```
+
+Get crossover density for each intact LTR elements
+
+```bash
+# get rrate for each ltr
+for i in ../TE_annotation/data/*EDTA.TEanno.gff3.intact.LTR.bed; do \
+	closest-features --dist <(sort-bed $i) <(grep $(echo $i|sed 's/.*\///; s/\..*//') NAM.rrate_v5.txt.mod|sort-bed -) | \
+		perl -nle 's/\|/ /g; print $_' > $(echo $i|sed 's/.*\///').rrate & \
+done
+
+# gather
+for i in *intact.LTR.bed.rrate; do \
+	perl -snale '$id=~s/\..*//; print "$id\t$_"' -- -id=$i $i; \
+done | awk '{if ($2~/_chr/) print $0}' | \
+	perl -nle 'next if /NA NA NA NA/; s/NA NA/NA NA NA NA NA NA/g; s/\s+/\t/g; print $_' > NAM.intact.LTR.rrate
+```
+
+Data format for `NAM.intact.LTR.rrate`
+
+```bash
+# example:
+# B97     B97_chr1        725751  735266  ji_AC215728_13156       0.9939  B97_chr1        708296  708297  B97     0.651893498232165       -17455  B97_chr1        741418  741419  B97     0.652797008536399       6153
+# B97     B97_chr1        796847  805820  opie_AC214122_12495     0.9936  B97_chr1        774539  774540  B97     0.653699986672628       -22308  B97_chr1        807660  807661  B97     0.654602428189014       1841
+# B97     B97_chr1        814010  828988  flip_AC194904_4319      0.9917  B97_chr1        807660  807661  B97     0.654602428189014       -6350   B97_chr1        840781  840782  B97     0.65550432863852        11794
+
+# the first 9 columns are information for this intact LTR element
+##	B97     B97_chr1        725751  735266  ji_AC215728_13156       0.9939  B97_chr1        708296  708297
+
+# the 10-16 columns are the upstream closest crossover marker
+##	B97     0.651893498232165 (crossover density)       -17455 (physical distance)  B97_chr1        741418  741419
+
+# the 17-19 columns are the downstream closest crossover marker
+##	B97     0.652797008536399 (crossover density)       6153 (physical distance)
 ```
