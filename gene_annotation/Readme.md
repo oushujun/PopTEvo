@@ -1,7 +1,9 @@
 ## Files explained
 
 *.1.gff3.gz	Gene annotations in GFF3 format, obtained from Hufford et al. (2021)
+
 *.1.cds.fa.gz	CDS of each annotated gene in FASTA format, obtained from Hufford et al. (2021)
+
 *.1.cds.fa.TElist	A list of TE-related genes
 *.1.gff3.gene.bed.noTE	A list of non-TE related genes in BED format
 *_class2.gtf.gz	Transcriptom assembly using Class2 in GTF format, obtained from Hufford et al. (2021)
