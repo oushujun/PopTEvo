@@ -1,9 +1,10 @@
 ## Files explained
-*.narrowPeak	Accessible chromatin regions (ACRs) of each NAM genomes obtained from Hufford et al. (2021)
-NAM26.intact.LTR.ACR.nostart2	AC-LTRs originated within intact LTR-RTs
+*.narrowPeak, Accessible chromatin regions (ACRs) of each NAM genomes obtained from Hufford et al. (2021)
+
+NAM26.intact.LTR.ACR.nostart2, AC-LTRs originated within intact LTR-RTs
 
 
-Covert seq id
+Covert sequence IDs
 
 ```bash
 mv OH7B.allreps_Zm-Oh7B-REFERENCE-NAM-1.0_no-dups-mapq30_peaks.narrowPeak.mod OH7B.allreps_Zm-Oh7b-REFERENCE-NAM-1.0_no-dups-mapq30_peaks.narrowPeak.mod
