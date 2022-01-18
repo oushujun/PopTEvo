@@ -19,6 +19,217 @@ NAM.intact.LTR.genedist.gz, Distance to closest genes (both left and right) for 
 bin/, Contain scripts used in this section.
 
 
+## generate sum files for struc and homo annos
+
+```bash
+for i in *fasta.mod.EDTA.intact.gff3; do \
+	perl ~/las/git_bin/EDTA/util/gff2bed.pl $i structural | \
+	  perl -nle 'my ($chr, $s, $e, $anno, $dir, $supfam)=(split)[0,1,2,3,8,12]; print "10000 0.001 0.001 0.001 $chr $s $e NA $dir $anno $supfam"' | \
+	    perl ~/las/git_bin/EDTA/util/buildSummary.pl -maxDiv 40 -genome_size 2300000000 -seq_count 200 - \
+	> ${i%.*}.sum 2>/dev/null & \
+done
+
+for i in *mod.EDTA.TEanno.gff3; do \
+	grep -v structural $i | perl ~/las/git_bin/EDTA/util/gff2bed.pl - homology | \
+	  perl -nle 'my ($chr, $s, $e, $anno, $dir, $supfam)=(split)[0,1,2,3,8,12]; print "10000 0.001 0.001 0.001 $chr $s $e NA $dir $anno $supfam"' | \
+	    perl ~/las/git_bin/EDTA/util/buildSummary.pl -maxDiv 40 -genome_size 2300000000 -seq_count 200 - \
+	> ${i%.*}.homo.sum 2>/dev/null & \
+done
+```
+
+## aggregate TE summary info
+
+```bash
+for i in *mod.EDTA.TEanno.sum; do \
+	cat <(echo $i|perl -nle 's/\..*//; print "$_\t${_}_cp\t${_}_bp\t${_}_pcnt"') \
+	    <(head -32 $i|grep -v -P "\-\-|=|total|masked" | perl -0777 -ne 's/\s+unknown/\nLTR_unknown/; print $_' | grep %) | \
+	      perl ~/las/git_bin/popgen/format_conversion/transpose3.pl -; \
+done > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum
+
+cat head <(grep bp NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum) > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.bp.txt
+```
+
+
+# sum intact size for LTR TIR and Helitron in each genome
+
+```bash
+for j in `ls *fasta.mod.EDTA.intact.gff3|grep -v NAM`; do \
+	echo -n "$j "; \
+	for i in LTR_ /DT Heli; do \
+	  grep ID $j | grep $i | awk '{print $1"\t"$4"\t"$5"\t"$3}' | perl ~/las/git_bin/EDTA/util/combine_overlap.pl - | \
+	    perl ~/las/git_bin/EDTA/util/count_mask.pl -; \
+	done; \
+done | perl -ne 'chomp; print "\n" if /gff/; print "$_\t"' > NAM.EDTA1.9.6.MTEC02052020.intact.sum &
+
+perl -i -nle 'next if /^$/; s/.*\///; s/\..*gff3//; print $_' NAM.EDTA1.9.6.MTEC02052020.intact.sum
+
+cat <(echo "Genome LTR TIR Helitron") NAM.EDTA1.9.0.MTEC02052020.intact.sum > NAM.EDTA1.9.6.MTEC02052020.intact.sum.txt
+```
+
+
+## aggregate into a big table
+
+```bash
+cat *mod.EDTA.TEanno.sum.fam | perl combine_TE_fam_pcnt.pl bp - > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam.bp
+
+perl -i -nle 's/#/_/g; print $_' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam
+
+perl -i -nle 's/#/_/g; print $_' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam.bp
+
+cat *mod.EDTA.intact.sum.fam | perl ../combine_TE_fam_pcnt.pl bp - | perl -nle 's/#/_/g; print $_' > NAM.EDTA1.9.6.MTEC02052020.TE.v1.intact.sum.fam.bp &
+
+cat *mod.EDTA.TEanno.homo.sum.fam | perl ../combine_TE_fam_pcnt.pl bp - | perl -nle 's/#/_/g; print $_' > NAM.EDTA1.9.6.MTEC02052020.TE.v1.homo.sum.fam.bp &
+```
+
+
+## keep TE only
+
+```bash
+grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam > NAM.EDTA1.9.6.MTEC02052020.TE.v1.1.anno.sum.fam
+
+grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam.bp > NAM.EDTA1.9.6.MTEC02052020.TE.v1.1.anno.sum.fam.bp
+```
+
+## count rare LTRs (not included in pan-NAM lib)
+
+```bash
+for i in *mod.EDTA.TEanno.gff3; do \
+	echo -n "$i "; awk '{if (/struc/ && /LTR_retrotransposon/) {Full++; if (/chr[0-9]+:/) Rare++}} END {print Rare"\t"Full}' $i; \
+done > NAM.EDTA1.9.0.MTEC02052020.TE.v1.anno.LTR.rare.count &
+```
+
+## get rare LTR and cluster
+
+```bash
+perl ~/las/git_bin/EDTA/util/call_seq_by_list.pl <(grep struc Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.gff3 | grep LTR_retrotransposon | \
+    grep -P 'chr[0-9]+:' | awk '{print $1":"$4".."$5}' | awk '{print $1"\t"$1}') \
+  -C ../../Tzi8/Tzi8.pseudomolecules-v1.fasta > Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa &
+
+perl -i -nle 's/\|.*//; print $_' Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa
+
+nohup perl ~/las/git_bin/EDTA/util/cleanup_nested.pl -in Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa -cov 0.95 -minlen 80 -miniden 80 -t 36 &
+
+nohup RepeatMasker -pa 36 -q -no_is -norna -nolow -div 40 -lib ../../maizeTE02052020 Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa.cln  &
+
+perl ~/las/git_bin/EDTA/util/classify_by_lib_RM.pl  -seq Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa.cln -RM Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa.cln.out
+
+perl -i -nle 's/\|.*//; print $_' Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa.cln.rename
+
+nohup RepeatMasker -pa 36 -q -no_is -norna -nolow -div 40 -lib Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa.cln.rename Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa &
+
+perl ~/las/git_bin/EDTA/util/classify_by_lib_RM.pl -seq Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa -RM Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa.out
+
+awk '{print $2}' Tzi8.pseudomolecules-v1.fasta.mod.EDTA.TEanno.rare.LTR.fa.rename.list|uniq -c |sort -k1,1 -nr|less
+
+# after running through all 26 genomes, reclassify
+for i in *rare.LTR.fa; do \
+	perl ~/las/git_bin/EDTA/util/classify_by_lib_RM.pl -seq $i -RM $i.out -cov 50 -len 70 -iden 70 & \
+done
+
+# count copy number of rare LTRs
+for i in *LTR.fa.rename.list.count; do \
+	echo -n "$i "; awk '{sum+=$1; a[NR]=$1} END {for(i in a) y += (a[i]-(sum/NR))^2; print NR"\t"sum"\t"sum/NR"\t"sqrt(y/(NR*(NR-1)))}' $i; \
+done > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.LTR.rare.count
+```
+
+
+## get intact LTR length info
+
+```bash
+for i in *mod.pass.list; do \
+	perl -nle 'my ($str, $end, $ins, $ine) = ($1, $2, $3, $4) if /:([0-9]+)\.\.([0-9]+)\s+.*IN:([0-9]+)\.\.([0-9]+)\s+/; my $id = (split)[0]; my $info = $id; $info =~ s/^([a-z0-9_]+)_/$1\t/i; my $len = $end - $str + 1; $inlen = $ine - $ins + 1; $ltrlen = ($len - $inlen)/2; print "$info\t$id\t$len\t$ltrlen\t$inlen" unless /^#/' $i; \
+done > ../NAM.26.intact.LTR.len.info &
+```
+
+## get nested and non-nested info
+
+```bash
+# get intact LTR info
+for i in *mod.EDTA.TEanno.gff3; do \
+	grep struc $i | grep LTR_retrotransposon | \
+	perl -nle 'my ($chr, $str, $end, $info) = (split)[0,3,4,8]; my ($id, $iden) = ($1, $2) if $info =~ /Name=(.*);Classification.*ltr_identity=([0-9.]+);/; print "$chr\t$str\t$end\t$id\t$iden"' > $i.intact.LTR.bed & \
+done
+
+# get all TE info
+for i in *mod.EDTA.TEanno.gff3; do \
+	grep -v -P '\s+repeat_region|^#|target_site_duplication|long_terminal_repeat' $i | \
+	  perl -nle 'my ($chr, $fam, $str, $end, $info) = (split)[0,2,3,4,8]; my ($id, $iden) = ($1, $2) if $info =~ /Name=(.*);Classification/; print "$chr\t$str\t$end\t$id\t$fam"' > $i.all.TE.bed & \
+done
+
+# requires BEDTools intersect
+for i in *EDTA.TEanno.gff3; do \
+	bedtools intersect -a $i.intact.LTR.bed -b $i.all.TE.bed -F 1 -wa -wb > $i.intact.LTR.nested & \
+done
+
+for i in *nested; do \
+	perl -i -nle 's/^\s+//; my $id="$1\t" if /^(\S+)_[s|c]\S+/i; print "${id}$_"' $i & \
+done
+
+cat *fasta.mod.EDTA.TEanno.gff3.intact.LTR.nested > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested &
+
+perl ./bin/find_nested.pl NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested | sort -suV > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod
+
+awk '{print $7"\t"$8"\t"$9"\t"$0}' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod|grep -v -P '\s+NA\s+'|perl combine_overlap2.pl - NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged
+
+awk '{$11=$2; $12=$3; $1=""; $2=""; $3=""; print $0}' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged|perl -nle 's/^\s+//; print $_' > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged.mod
+
+cat <(grep -P '\s+NA\s+' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod) NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged.mod|sort -suV > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod2
+```
+
+
+## get non-TE genes for each genome
+
+```bash
+# get data
+iget -r /iplant/home/shared/NAM/NAM_genome_and_annotation_Jan2021_release/GENE_MODEL_ANNOTATIONS
+
+# get T001 cdna
+for i in */*cdna.fa; do \
+	perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 $i 1 <(grep _T001 $i) -FA > $i.T001 & \
+done
+
+# combine
+cat *T001 > NAM.26.cdna.fa
+
+# identify TEs and remove using TEsorter
+nohup TEsorter -p 36 NAM.26.cdna.fa &
+
+#id lists of TE genes
+for i in *.cds.fa; do \
+	awk '{if ($1!~/#/)print $1}' $i.masked.cleanup $i.rexdb.cls.tsv|sed 's/_.*//'|sort -u > $i.TElist & \
+done
+
+# get bed files for genes using BEDTools
+for i in */*1.gff3; do \
+	gff2bed < $i|grep gene > $i.gene.bed & \
+done
+
+# remove TEs 
+for i in */*gff3.gene.bed; do \
+	perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 $i 1 cds/$(echo $i|sed 's/\/.*//')*TElist -ex > $i.noTE & \
+done
+```
+
+
+## get closest genes for each intact LTR
+
+```bash
+# find closest genes
+for i in *gff3.intact.LTR.bed; do \
+	closest-features --dist <(perl -nle 's/^[0-9a-zA-Z]+_chr/chr/; print $_' $i) 
+				<(awk '{print $1" "$2" "$3" "$4" "$6}' Zm-$(echo $i|sed 's/\..*//')-*/*noTE) | \
+	perl -nle 's/\|/ /g; print $_' > $i.genedist & \
+done
+
+# gather
+for i in *bed.genedist; do \
+	perl -snale '$id=~s/\..*//; print "$id\t$_"' -- -id=$i $i; \
+done > NAM.intact.LTR.genedist &
+
+perl -i -nle 's/NA NA/NA NA NA NA NA NA/g; s/\s+/\t/g; print $_' NAM.intact.LTR.genedist
+```
+
+
 ## Get pan-genome TE curve
 
 
@@ -55,6 +266,28 @@ done
 cat result.* > pan_TE_bootstrap1000.summary26.txt
 rm result.*
 ```
+
+## Get coordinate and structural information for all intact TEs
+
+LTR elements
+
+```bash
+for i in `ls ../data/*mod.EDTA.intact.gff3.gz | grep -v -P 'Ab10|AB10'`; do \
+  zcat $i | grep LTR_retrotransposon | \
+    perl -nle 'my ($chr, undef, $supfam, $from, $to, undef, $str, undef, $info)=(split); my $genome = $1 if $chr=~s/^(.*?)_//; my ($id, $classification, $SO, $iden, $motif, $tsd)=($1, $2, $3, $4, $5, $6) if $info=~/Name=(.*);Classification=(.*);Sequence_ontology=(.*);ltr_identity=(.*);Method=structural;motif=(.*);tsd=(.*)$/; print "$genome\t$chr\t$supfam\t$classification\t$from\t$to\t$str\t$id\t$SO\t$motif\t$tsd\t$iden"'; \
+  done > NAM.26.intact.LTR.list &
+```
+
+TIR elements and Helitrons
+
+```bash
+# get intact TEs not LTRs info
+for i in `ls ../data/*mod.EDTA.intact.gff3 | grep -v -P 'Ab10|AB10'`; do \
+  zcat $i | grep -v '=LTR' $i | \
+    perl -nle 'my ($chr, undef, $supfam, $from, $to, undef, $str, undef, $info)=(split); my $genome = $1 if $chr=~s/^(.*?)_//; my ($id, $classification, $SO)=($1, $2, $3) if $info=~/Name=(.*);Classification=(.*);Sequence_ontology=(.*);Identit.*/; print "$genome\t$chr\t$supfam\t$classification\t$from\t$to\t$str\t$id\t$SO"'; \
+  done > NAM.26.intact.not_LTR.list
+```
+
 
 ## Identify solo LTRs
 
