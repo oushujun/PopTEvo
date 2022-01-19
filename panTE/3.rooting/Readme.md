@@ -64,9 +64,10 @@ ls x*.NAM.LTR.flank.cmb500bp.fa > split.list
 sbatch --array=0-59 ./bin/blast.sub
 ```
 
-## count fl-copies
+## Identify LTR insertions (null in mexicana, inserted in maize)
 
 ```bash
+# count full-length copies
 perl ./bin/filter_null_sites.pl NAM.LTR.flank.cmb500bp.fa.teosinte.out > NAM.LTR.all.flank.cmb500bp.fa.teosinte.out.fl.count &
 perl ./bin/filter_null_sites.pl NAM.LTR.null.500bp.fa.teosinte.out > NAM.LTR.all.null.500bp.fa.teosinte.out.fl.count &
 
