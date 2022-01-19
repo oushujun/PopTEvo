@@ -19,6 +19,7 @@ NAM.intact.LTR.genedist.gz, Distance to closest genes (both left and right) for 
 bin/, Contain scripts used in this section.
 
 
+<<<<<<< HEAD
 ## generate sum files for struc and homo annos
 
 ```bash
@@ -230,6 +231,8 @@ perl -i -nle 's/NA NA/NA NA NA NA NA NA/g; s/\s+/\t/g; print $_' NAM.intact.LTR.
 ```
 
 
+=======
+>>>>>>> 1d2202ef04f6b49d9ec3ef7f37f0c111747e4b34
 ## Get pan-genome TE curve
 
 
@@ -267,6 +270,7 @@ cat result.* > pan_TE_bootstrap1000.summary26.txt
 rm result.*
 ```
 
+<<<<<<< HEAD
 ## Get coordinate and structural information for all intact TEs
 
 LTR elements
@@ -289,6 +293,8 @@ for i in `ls ../data/*mod.EDTA.intact.gff3 | grep -v -P 'Ab10|AB10'`; do \
 ```
 
 
+=======
+>>>>>>> 1d2202ef04f6b49d9ec3ef7f37f0c111747e4b34
 ## Identify solo LTRs
 
 Find LTR coordinates from the pan-TE library
