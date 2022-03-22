@@ -1,6 +1,6 @@
 ## Files explained
 
-NAM.EDTA1.8.0.MTEC02052020.TElib.clean.fa, Pan-genome TE library (examplars).
+NAM.EDTA2.0.0.MTEC02052020.TElib.clean.fa, Pan-genome TE library (examplars).
 
 *fasta.mod.pass.list, Structurally intact LTRs, LTR_retriever format.
 
@@ -16,27 +16,120 @@ NAM.EDTA1.8.0.MTEC02052020.TElib.clean.fa, Pan-genome TE library (examplars).
 
 NAM.intact.LTR.genedist.gz, Distance to closest genes (both left and right) for each intact LTR
 
+NAM.alt.list, A list of alternative scaffolds (residual heterozygous regions)
+
 bin/, Contain scripts used in this section.
 
 
-<<<<<<< HEAD
-## generate sum files for struc and homo annos
+## Identify alternative scaffolds
+```bash
+# get the released genomes
+for i in `ils /iplant/home/shared/NAM/NAM_genome_and_annotation_Jan2021_release/GENOMIC_FASTA_FILES/|grep Zm`; do \
+	iget /iplant/home/shared/NAM/NAM_genome_and_annotation_Jan2021_release/GENOMIC_FASTA_FILES/$i & \
+done
+
+# get alternative scaffold IDs from released genomes
+for i in *gz; do gunzip $i & done
+for i in *fasta; do \
+	perl ~/las/git_bin/EDTA/util/count_base.pl $i -s > $i.list & \
+done
+grep alt *fasta.list |sed 's/Zm\-//; s/\-.*:/ /' > maizeGDB.alt.list
+
+# match the alt list with annotated genomes
+perl ~/las/git_bin/EDTA/util/output_by_list.pl 2 <(grep -v -P 'chr|All' *fasta.list|sed 's/.*://') 3 maizeGDB.alt.list > NAM.alt.list
+
+# get scaffolds not on the maizeGDB.alt.list
+for i in `cat list.cds`; do \
+	perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 $i 1 NAM.alt.list -ex -FA > $i.scf & \
+done
+
+# get chr only
+for i in *fasta; do \
+	perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 $i 1 <(grep chr $i.list) -FA > $i.chr & \
+done
+
+# align scaffolds to chr
+for i in *fasta; do \
+	nohup minimap2 -a $i.chr $i.scf -t 1 > $i.sam & \
+done
+
+## Use CML52 as an extreme to find filtering parameters
+# align CML52 alts to chrs
+perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 CML52.pseudomolecules-v2.1.fasta 1 <(grep CML52 NAM.alt.list) -FA > CML52.pseudomolecules-v2.1.fasta.alt
+minimap2 -a CML52.pseudomolecules-v2.1.fasta.chr CML52.pseudomolecules-v2.1.fasta.alt -t 36 > CML52.pseudomolecules-v2.1.fasta.alt.sam &
+
+## set minq = 0 in the following script, all reported alignment has mapq == 60 except one has mapq == 1. 
+# Conclusion: use minq = 60 as alt cutoff.
+perl find_alts.pl CML52.pseudomolecules-v2.1.fasta CML52.pseudomolecules-v2.1.fasta.alt.sam |less
+
+# set minq = 60, then filter alignments and report alt candidates
+for i in *fasta; do perl find_alts.pl $i $i.sam > $i.alts.list & done
+
+# find overlapping alt candidates and remove (alternative scaffolds should not overlap each other)
+for i in *alts.list; do \
+	bedtools intersect -a <(awk '{print $2"\t"$3"\t"$3+$5"\t"$1}' $i|sort -suV) \
+			-b <(awk '{print $2"\t"$3"\t"$3+$5"\t"$1}' $i|sort -suV) -wo | \
+	awk '{ if ($9>0 && ($4 != $8)) print $4"\n"$8 }'| sort -u > $i.rmv; \
+done
+for i in *alts.list; do \
+	perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 $i 1 $i.rmv -ex; \
+done | awk '{print $1}' | sort -u > NAM.alt.new.list
+
+# combine known and new alts
+cat NAM.alt.new.list >> NAM.alt.list
+```
+
+
+## generate sum files for structural and homology annotations in pseudochromosomes and scaffolds (alt scaffolds are removed)
 
 ```bash
-for i in *fasta.mod.EDTA.intact.gff3; do \
-	perl ~/las/git_bin/EDTA/util/gff2bed.pl $i structural | \
+for i in *fasta.mod.EDTA.intact.gff3.gz; do \
+	zcat $i | perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 - 1 NAM.alt.list -ex | \
+	  perl ~/las/git_bin/EDTA/util/gff2bed.pl - structural | \
 	  perl -nle 'my ($chr, $s, $e, $anno, $dir, $supfam)=(split)[0,1,2,3,8,12]; print "10000 0.001 0.001 0.001 $chr $s $e NA $dir $anno $supfam"' | \
 	    perl ~/las/git_bin/EDTA/util/buildSummary.pl -maxDiv 40 -genome_size 2300000000 -seq_count 200 - \
-	> ${i%.*}.sum 2>/dev/null & \
+	> ${i%.*.*}.sum 2>/dev/null & \
 done
 
-for i in *mod.EDTA.TEanno.gff3; do \
-	grep -v structural $i | perl ~/las/git_bin/EDTA/util/gff2bed.pl - homology | \
+for i in *mod.EDTA.TEanno.gff3.gz; do \
+	zcat $i | perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 - 1 NAM.alt.list -ex | \
+	  grep -v structural | perl ~/las/git_bin/EDTA/util/gff2bed.pl - homology | \
 	  perl -nle 'my ($chr, $s, $e, $anno, $dir, $supfam)=(split)[0,1,2,3,8,12]; print "10000 0.001 0.001 0.001 $chr $s $e NA $dir $anno $supfam"' | \
 	    perl ~/las/git_bin/EDTA/util/buildSummary.pl -maxDiv 40 -genome_size 2300000000 -seq_count 200 - \
-	> ${i%.*}.homo.sum 2>/dev/null & \
+	> ${i%.*.*}.homo.sum 2>/dev/null & \
 done
+
+for i in *mod.EDTA.TEanno.gff3.gz; do \
+	cat <(zcat $i | perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 - 1 NAM.alt.list -ex | \
+		grep -v structural | perl ~/las/git_bin/EDTA/util/gff2bed.pl - homology | \
+		perl -nle 'my ($chr, $s, $e, $anno, $dir, $supfam)=(split)[0,1,2,3,8,12]; print "10000 0.001 0.001 0.001 $chr $s $e NA $dir $anno $supfam"') \
+	    <(zcat $i | perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 - 1 NAM.alt.list -ex | \
+		grep structural | perl ~/las/git_bin/EDTA/util/gff2bed.pl - structural | \
+		perl -nle 'my ($chr, $s, $e, $anno, $dir, $supfam)=(split)[0,1,2,3,8,12]; print "10000 0.001 0.001 0.001 $chr $s $e NA $dir $anno $supfam"') | \
+	sort -k5,5 -k6,6n | \
+	perl ~/las/git_bin/EDTA/util/buildSummary.pl -maxDiv 40 -genome_size 2300000000 -seq_count 200 - \
+	> ${i%.*.*}.sum 2>/dev/null & \
+done
+
 ```
+
+
+## Calculate total TE content
+
+```bash
+# stat sequence length
+for i in `awk '{print $1}' list.cds`; do \
+        perl ~/las/git_bin/EDTA/util/count_base.pl $i -s > $i.stats & \
+done
+
+for i in `awk '{print $1}' list.cds`; do \
+	echo -n "$i "; echo "scale = 4; $(grep 'total interspersed' $i.mod.EDTA.TEanno.sum|awk '{print $4}')/$(grep chr $i.stats|awk '{sum+=$2} END {print sum}')" | bc; \
+done > NAM.EDTA2.0.0.MTEC02052020.TE.sum
+
+# average repeat content in NAM
+awk '{sum+=$2} END {print sum/NR}' NAM.EDTA2.0.0.MTEC02052020.TE.sum
+```
+
 
 ## aggregate TE summary info
 
@@ -45,59 +138,80 @@ for i in *mod.EDTA.TEanno.sum; do \
 	cat <(echo $i|perl -nle 's/\..*//; print "$_\t${_}_cp\t${_}_bp\t${_}_pcnt"') \
 	    <(head -32 $i|grep -v -P "\-\-|=|total|masked" | perl -0777 -ne 's/\s+unknown/\nLTR_unknown/; print $_' | grep %) | \
 	      perl ~/las/git_bin/popgen/format_conversion/transpose3.pl -; \
-done > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum
+done > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum
 
-cat head <(grep bp NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum) > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.bp.txt
+cat head <(grep bp NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum) > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.bp.txt
 ```
 
 
-# sum intact size for LTR TIR and Helitron in each genome
+## sum intact size for LTR TIR and Helitron in each genome
 
 ```bash
-for j in `ls *fasta.mod.EDTA.intact.gff3|grep -v NAM`; do \
-	echo -n "$j "; \
+for j in *fasta.mod.EDTA.intact.gff3.gz; do \
+	echo -n "${j%.*} "; \
 	for i in LTR_ /DT Heli; do \
-	  grep ID $j | grep $i | awk '{print $1"\t"$4"\t"$5"\t"$3}' | perl ~/las/git_bin/EDTA/util/combine_overlap.pl - | \
+	  zcat $j | perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 - 1 NAM.alt.list -ex | \
+	   grep ID | grep $i | awk '{print $1"\t"$4"\t"$5"\t"$3}' | perl ~/las/git_bin/EDTA/util/combine_overlap.pl - | \
 	    perl ~/las/git_bin/EDTA/util/count_mask.pl -; \
 	done; \
-done | perl -ne 'chomp; print "\n" if /gff/; print "$_\t"' > NAM.EDTA1.9.6.MTEC02052020.intact.sum &
+done | perl -ne 'chomp; print "\n" if /gff/; print "$_\t"' > NAM.EDTA2.0.0.MTEC02052020.intact.sum &
 
-perl -i -nle 'next if /^$/; s/.*\///; s/\..*gff3//; print $_' NAM.EDTA1.9.6.MTEC02052020.intact.sum
+perl -i -nle 'next if /^$/; s/.*\///; s/\..*gff3//; print $_' NAM.EDTA2.0.0.MTEC02052020.intact.sum
 
-cat <(echo "Genome LTR TIR Helitron") NAM.EDTA1.9.0.MTEC02052020.intact.sum > NAM.EDTA1.9.6.MTEC02052020.intact.sum.txt
+cat <(echo "Genome LTR TIR Helitron") NAM.EDTA2.0.0.MTEC02052020.intact.sum > NAM.EDTA2.0.0.MTEC02052020.intact.sum.txt
 ```
 
 
-## aggregate into a big table
+## aggregate fam summaries into a big table
 
 ```bash
-cat *mod.EDTA.TEanno.sum.fam | perl combine_TE_fam_pcnt.pl bp - > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam.bp
+# extract family percent
+for i in *mod.EDTA.TEanno.sum; do perl ~/las/git_bin/PopTEvo/TE_annotation/bin/get_TE_fam_pcnt.pl $i & done
+for i in *mod.EDTA.intact.sum; do perl ~/las/git_bin/PopTEvo/TE_annotation/bin/get_TE_fam_pcnt.pl $i & done
+for i in *mod.EDTA.TEanno.homo.sum; do perl ~/las/git_bin/PopTEvo/TE_annotation/bin/get_TE_fam_pcnt.pl $i & done
 
-perl -i -nle 's/#/_/g; print $_' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam
+cat *mod.EDTA.TEanno.sum.fam | perl ~/las/git_bin/PopTEvo/TE_annotation/bin/combine_TE_fam_pcnt.pl bp - | perl -nle 's/#/_/g; print $_' > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum.fam.bp &
 
-perl -i -nle 's/#/_/g; print $_' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam.bp
+cat *mod.EDTA.intact.sum.fam | perl ~/las/git_bin/PopTEvo/TE_annotation/bin/combine_TE_fam_pcnt.pl bp - | perl -nle 's/#/_/g; print $_' > NAM.EDTA2.0.0.MTEC02052020.TE.v1.intact.sum.fam.bp &
 
-cat *mod.EDTA.intact.sum.fam | perl ../combine_TE_fam_pcnt.pl bp - | perl -nle 's/#/_/g; print $_' > NAM.EDTA1.9.6.MTEC02052020.TE.v1.intact.sum.fam.bp &
-
-cat *mod.EDTA.TEanno.homo.sum.fam | perl ../combine_TE_fam_pcnt.pl bp - | perl -nle 's/#/_/g; print $_' > NAM.EDTA1.9.6.MTEC02052020.TE.v1.homo.sum.fam.bp &
+cat *mod.EDTA.TEanno.homo.sum.fam | perl ~/las/git_bin/PopTEvo/TE_annotation/bin/combine_TE_fam_pcnt.pl bp - | perl -nle 's/#/_/g; print $_' > NAM.EDTA2.0.0.MTEC02052020.TE.v1.homo.sum.fam.bp &
 ```
 
 
 ## keep TE only
 
 ```bash
-grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam > NAM.EDTA1.9.6.MTEC02052020.TE.v1.1.anno.sum.fam
+grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum.fam.bp > NAM.EDTA2.0.0.MTEC02052020.TE.v1.1.anno.sum.fam.bp
 
-grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.sum.fam.bp > NAM.EDTA1.9.6.MTEC02052020.TE.v1.1.anno.sum.fam.bp
+grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.EDTA2.0.0.MTEC02052020.TE.v1.homo.sum.fam.bp > NAM.EDTA2.0.0.MTEC02052020.TE.v1.1.homo.sum.fam.bp
 ```
+
+
+## Get TE families info
+for i in *mod.EDTA.TEanno.gff3.gz; do \
+	zcat $i | grep -v -P 'long_terminal_repeat|repeat_region|target_site_duplication' | \
+	  perl -nle 'next unless s/ID=//; my ($cla, $id)=(split)[2,8]; $id=~s/.*;Name=(.*);Classific.*/$1/; $id=~s/;.*//; $id=~s/#/_/; print "$id\t$cla"' | \
+	  grep -v -P "\)n|A-rich|G-rich|begin|position"; \
+done | sort -u > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.TEfam.list &
+
+grep -c \> NAM.EDTA2.0.0.MTEC02052020.TElib.fa #18126
+grep -v : NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.TEfam.list|awk '{print $1}'|sed 's/_LTR//; s/_INT//;' |sort -u|wc -l #17502
+grep \> NAM.EDTA2.0.0.MTEC02052020.TElib.fa|perl -nle 's/#/\t/; s/>//; print $_' > NAM.EDTA2.0.0.MTEC02052020.TElib.fa.list
+grep : NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.TEfam.list >> NAM.EDTA2.0.0.MTEC02052020.TElib.fa.list
+
+perl ~/las/git_bin/EDTA/util/count_base.pl NAM.EDTA2.0.0.MTEC02052020.TElib.fa -s | \
+	perl ~/las/git_bin/EDTA/util/get_lib_len.pl > NAM.EDTA2.0.0.MTEC02052020.TElib.fa.info
+```
+
 
 ## count rare LTRs (not included in pan-NAM lib)
 
 ```bash
 for i in *mod.EDTA.TEanno.gff3; do \
 	echo -n "$i "; awk '{if (/struc/ && /LTR_retrotransposon/) {Full++; if (/chr[0-9]+:/) Rare++}} END {print Rare"\t"Full}' $i; \
-done > NAM.EDTA1.9.0.MTEC02052020.TE.v1.anno.LTR.rare.count &
+done | perl -nle 's/\.\S+//; print $_' > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.LTR.rare.count &
 ```
+
 
 ## get rare LTR and cluster
 
@@ -139,42 +253,7 @@ done > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.LTR.rare.count
 ```bash
 for i in *mod.pass.list; do \
 	perl -nle 'my ($str, $end, $ins, $ine) = ($1, $2, $3, $4) if /:([0-9]+)\.\.([0-9]+)\s+.*IN:([0-9]+)\.\.([0-9]+)\s+/; my $id = (split)[0]; my $info = $id; $info =~ s/^([a-z0-9_]+)_/$1\t/i; my $len = $end - $str + 1; $inlen = $ine - $ins + 1; $ltrlen = ($len - $inlen)/2; print "$info\t$id\t$len\t$ltrlen\t$inlen" unless /^#/' $i; \
-done > ../NAM.26.intact.LTR.len.info &
-```
-
-## get nested and non-nested info
-
-```bash
-# get intact LTR info
-for i in *mod.EDTA.TEanno.gff3; do \
-	grep struc $i | grep LTR_retrotransposon | \
-	perl -nle 'my ($chr, $str, $end, $info) = (split)[0,3,4,8]; my ($id, $iden) = ($1, $2) if $info =~ /Name=(.*);Classification.*ltr_identity=([0-9.]+);/; print "$chr\t$str\t$end\t$id\t$iden"' > $i.intact.LTR.bed & \
-done
-
-# get all TE info
-for i in *mod.EDTA.TEanno.gff3; do \
-	grep -v -P '\s+repeat_region|^#|target_site_duplication|long_terminal_repeat' $i | \
-	  perl -nle 'my ($chr, $fam, $str, $end, $info) = (split)[0,2,3,4,8]; my ($id, $iden) = ($1, $2) if $info =~ /Name=(.*);Classification/; print "$chr\t$str\t$end\t$id\t$fam"' > $i.all.TE.bed & \
-done
-
-# requires BEDTools intersect
-for i in *EDTA.TEanno.gff3; do \
-	bedtools intersect -a $i.intact.LTR.bed -b $i.all.TE.bed -F 1 -wa -wb > $i.intact.LTR.nested & \
-done
-
-for i in *nested; do \
-	perl -i -nle 's/^\s+//; my $id="$1\t" if /^(\S+)_[s|c]\S+/i; print "${id}$_"' $i & \
-done
-
-cat *fasta.mod.EDTA.TEanno.gff3.intact.LTR.nested > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested &
-
-perl ./bin/find_nested.pl NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested | sort -suV > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod
-
-awk '{print $7"\t"$8"\t"$9"\t"$0}' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod|grep -v -P '\s+NA\s+'|perl combine_overlap2.pl - NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged
-
-awk '{$11=$2; $12=$3; $1=""; $2=""; $3=""; print $0}' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged|perl -nle 's/^\s+//; print $_' > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged.mod
-
-cat <(grep -P '\s+NA\s+' NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod) NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod.merged.mod|sort -suV > NAM.EDTA1.9.6.MTEC02052020.TE.v1.anno.intact.LTR.nested.mod2
+done > NAM.26.intact.LTR.len.info &
 ```
 
 
@@ -231,12 +310,9 @@ perl -i -nle 's/NA NA/NA NA NA NA NA NA/g; s/\s+/\t/g; print $_' NAM.intact.LTR.
 ```
 
 
-=======
->>>>>>> 1d2202ef04f6b49d9ec3ef7f37f0c111747e4b34
 ## Get pan-genome TE curve
 
-
-get full length TEs from homo-based masking
+### get full length TEs from homo-based masking
 
 ```bash
 for i in *fasta.out; do
@@ -245,7 +321,7 @@ for i in *fasta.out; do
 done
 ```
 
-get uniq list of flTEs
+### get uniq list of flTEs
 
 ```bash
 for i in *flTE; do
@@ -253,7 +329,7 @@ for i in *flTE; do
 done
 ```
 
-bootstrap pan-TE curve for 1000 times
+### bootstrap pan-TE curve for 1000 times
 
 ```bash
 for k in {1..100}; do
@@ -261,8 +337,8 @@ for k in {1..100}; do
     for i in `ls *list|grep -v -P 'AB10|Ab10'|shuf`; do
       cat $i >> temp.$j.$k;
       sort -u temp.$j.$k | wc -l;
-    done |\
-    perl transpose3.pl - > result.$j.$k;
+    done | \
+    perl ~/las/git_bin/PopTEvo/TE_annotation/bin/transpose3.pl - > result.$j.$k;
     rm temp.$j.$k;
   done &
 done
@@ -270,14 +346,13 @@ cat result.* > pan_TE_bootstrap1000.summary26.txt
 rm result.*
 ```
 
-<<<<<<< HEAD
 ## Get coordinate and structural information for all intact TEs
 
 LTR elements
 
 ```bash
-for i in `ls ../data/*mod.EDTA.intact.gff3.gz | grep -v -P 'Ab10|AB10'`; do \
-  zcat $i | grep LTR_retrotransposon | \
+for i in *mod.EDTA.intact.gff3.gz; do zcat $i | grep LTR_retrotransposon | \
+    perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 - 1 NAM.alt.list -ex | \
     perl -nle 'my ($chr, undef, $supfam, $from, $to, undef, $str, undef, $info)=(split); my $genome = $1 if $chr=~s/^(.*?)_//; my ($id, $classification, $SO, $iden, $motif, $tsd)=($1, $2, $3, $4, $5, $6) if $info=~/Name=(.*);Classification=(.*);Sequence_ontology=(.*);ltr_identity=(.*);Method=structural;motif=(.*);tsd=(.*)$/; print "$genome\t$chr\t$supfam\t$classification\t$from\t$to\t$str\t$id\t$SO\t$motif\t$tsd\t$iden"'; \
   done > NAM.26.intact.LTR.list &
 ```
@@ -285,36 +360,34 @@ for i in `ls ../data/*mod.EDTA.intact.gff3.gz | grep -v -P 'Ab10|AB10'`; do \
 TIR elements and Helitrons
 
 ```bash
-# get intact TEs not LTRs info
-for i in `ls ../data/*mod.EDTA.intact.gff3 | grep -v -P 'Ab10|AB10'`; do \
-  zcat $i | grep -v '=LTR' $i | \
+# get intact TIRs and Helitrons info
+for i in *mod.EDTA.intact.gff3.gz; do zcat $i | grep -v '=LTR'| \
+    perl ~/las/git_bin/EDTA/util/output_by_list.pl 1 - 1 NAM.alt.list -ex | \
     perl -nle 'my ($chr, undef, $supfam, $from, $to, undef, $str, undef, $info)=(split); my $genome = $1 if $chr=~s/^(.*?)_//; my ($id, $classification, $SO)=($1, $2, $3) if $info=~/Name=(.*);Classification=(.*);Sequence_ontology=(.*);Identit.*/; print "$genome\t$chr\t$supfam\t$classification\t$from\t$to\t$str\t$id\t$SO"'; \
-  done > NAM.26.intact.not_LTR.list
+  done > NAM.26.intact.not_LTR.list &
 ```
 
 
-=======
->>>>>>> 1d2202ef04f6b49d9ec3ef7f37f0c111747e4b34
 ## Identify solo LTRs
 
 Find LTR coordinates from the pan-TE library
 
 ```bash
-perl ./bin/find_LTR.pl -lib NAM.EDTA1.8.0.MTEC02052020.TElib.clean.fa > NAM.EDTA1.8.0.MTEC02052020.TElib.clean.fa.LTR.info 
+perl ~/las/git_bin/PopTEvo/TE_annotation/bin/find_LTR.pl -lib NAM.EDTA2.0.0.MTEC02052020.TElib.fa > NAM.EDTA2.0.0.MTEC02052020.TElib.fa.LTR.info
 ```
 
 Find solo LTR and gather data
 
 ```bash
-for i in *fasta.out; do 
-	perl ./bin/solo_finder.pl -i $i -info NAM.EDTA1.8.0.MTEC02052020.TElib.clean.fa.LTR.info > $(echo $i|sed 's/.out//').panTE.solo & 
+for i in *fasta.out.gz; do \
+	zcat $i | perl ~/las/git_bin/EDTA/util/output_by_list.pl 5 - 1 NAM.alt.list -ex | \
+	  awk '{if ($5~/_chr/) print $0}' | \
+	  perl ~/las/git_bin/PopTEvo/TE_annotation/bin/solo_finder.pl -i - -info NAM.EDTA2.0.0.MTEC02052020.TElib.fa.LTR.info | \
+	  perl -nle 's/^\s+//; my $id="$1\t" if /^(\S+)_[0-9a-z]+/i; print "${id}$_"' \
+	  > ${i%.*.*}.panTE.solo & \
 done
 
-for i in *solo; do 
-	perl -i -nle 's/^\s+//; my $id="$1\t" if /^(\S+)_[0-9a-z]+/i; print "${id}$_"' $i & 
-done
-
-cat *solo > NAM.EDTA1.9.0.MTEC02052020.TE.v1.anno.solo
+cat *panTE.solo > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.solo
 ```
 
 
