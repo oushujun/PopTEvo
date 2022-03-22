@@ -7,7 +7,7 @@ use strict;
 
 my $usage = "perl get_TE_fam_pcnt.pl genome.RM.out.sum";
 my $genome =$ARGV[0];
-my $ID = $1 if $genome =~ /^([0-9a-z_]+)\..*/i;
+my $ID = $1 if $genome =~ /^([0-9a-z_\-]+)\..*/i;
 
 open File, "grep % $genome|" or die $usage;
 open Out1, ">$genome.fam" or die $usage;
