@@ -188,6 +188,8 @@ grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.ED
 
 
 ## Get TE families info
+
+```bash
 for i in *mod.EDTA.TEanno.gff3.gz; do \
 	zcat $i | grep -v -P 'long_terminal_repeat|repeat_region|target_site_duplication' | \
 	  perl -nle 'next unless s/ID=//; my ($cla, $id)=(split)[2,8]; $id=~s/.*;Name=(.*);Classific.*/$1/; $id=~s/;.*//; $id=~s/#/_/; print "$id\t$cla"' | \
