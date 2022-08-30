@@ -141,6 +141,7 @@ for i in *mod.EDTA.TEanno.sum; do \
 done > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum
 
 cat head <(grep bp NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum) > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.bp.txt
+cat head <(grep pcnt NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum) > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.pcnt.txt
 ```
 
 
