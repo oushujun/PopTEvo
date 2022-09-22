@@ -1,0 +1,12 @@
+README
+
+Workflow for TE expression analysis from bam to count tables using maize NAM RNA-seq data. One input file called samples_allNAM.txt is used to run as array jobs.
+
+1. Prep annotation files by running NAM_make_annotations_nova.sh
+2. Create individual count tables using te_expression_allNAM.sh
+   note: This script calls a custom perl script called te_family_mapping_ver8.2_NAM.pl
+3. Combine individual count tables into single table by running the following:
+   perl combine_count_totals_NAM.pl samples_allNAM.txt 2
+
+Cloned from https://github.com/SNAnderson/maizeTEexpression/tree/master/NAM_2021 fdf58ef on Sep 23, 2021
+
