@@ -137,11 +137,11 @@ awk '{sum+=$2} END {print sum/NR}' NAM.EDTA2.0.0.MTEC02052020.TE.sum
 for i in *mod.EDTA.TEanno.sum; do \
 	cat <(echo $i|perl -nle 's/\..*//; print "$_\t${_}_cp\t${_}_bp\t${_}_pcnt"') \
 	    <(head -32 $i|grep -v -P "\-\-|=|total|masked" | perl -0777 -ne 's/\s+unknown/\nLTR_unknown/; print $_' | grep %) | \
-	      perl ~/las/git_bin/popgen/format_conversion/transpose3.pl -; \
+	      perl ~/bin/PopTEvo/TE_annotation/bin/transpose3.pl -; \
 done > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum
 
+head -1 NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum > head
 cat head <(grep bp NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum) > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.bp.txt
-cat head <(grep pcnt NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.sum) > NAM.EDTA2.0.0.MTEC02052020.TE.v1.anno.pcnt.txt
 ```
 
 
@@ -189,8 +189,6 @@ grep -v -P "CL569186.1|AF013103.1|\)n|cent|Cent|telo|knob|TR-1|osed|sela" NAM.ED
 
 
 ## Get TE families info
-
-```bash
 for i in *mod.EDTA.TEanno.gff3.gz; do \
 	zcat $i | grep -v -P 'long_terminal_repeat|repeat_region|target_site_duplication' | \
 	  perl -nle 'next unless s/ID=//; my ($cla, $id)=(split)[2,8]; $id=~s/.*;Name=(.*);Classific.*/$1/; $id=~s/;.*//; $id=~s/#/_/; print "$id\t$cla"' | \

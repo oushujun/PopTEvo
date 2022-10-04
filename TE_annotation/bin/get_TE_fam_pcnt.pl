@@ -14,7 +14,7 @@ open Out1, ">$genome.fam" or die $usage;
 
 my $go = 0;
 while (<File>){
-	($go = 1 and next) if /ID/;
+	($go = 1 and next) if /^\s+ID/;
 	next unless $go == 1;
 	s/^\s+//;
 	my ($te, $cp, $bp, $pcnt) = (split);

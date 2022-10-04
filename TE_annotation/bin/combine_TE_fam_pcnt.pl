@@ -8,12 +8,14 @@ use strict;
 my $usage = "cat *.sum.fam | perl combine_TE_fam_pcnt.pl [bp|pcnt] -";
 my $type = $ARGV[0];
 $type = 'bp' unless defined $type;
-my %summary;
 open IN, "<$ARGV[1]" or die $usage;
 
+my %summary;
+my %id;
 while (<IN>){
 	my ($te, $cp, $bp, $pcnt, $id) = (split);
 	next unless defined $id;
+	$id{$id} = $id;
 	if ($type eq 'pcnt'){
 		${$summary{$te}}{$id} = $pcnt;
 		}
@@ -25,15 +27,14 @@ close IN;
 
 	
 print "TE_fam";
-my $sample = "DTA_ZM00005_consensus"; #use "CentC" to extract genome id info
-foreach my $id (sort {$a cmp $b} (keys %{$summary{$sample}})){
+foreach my $id (sort {$a cmp $b} (keys %id)){
 	print "\t$id";
 	}
 print "\n";
 
 foreach my $te (keys %summary){
 	print "$te";
-	foreach my $id (sort {$a cmp $b} (keys %{$summary{$sample}})){
+	foreach my $id (sort {$a cmp $b} (keys %id)){
 		my $pcnt = 0;
 		$pcnt = ${$summary{$te}}{$id} if exists ${$summary{$te}}{$id};
 		$pcnt = $pcnt/100 if $pcnt =~ s/%//; #convert percent to decimal
