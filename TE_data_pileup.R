@@ -197,7 +197,7 @@ repeats_pcnt_plot = repeats_final %>%
   labs(x =" ", y = "Repeat length (%)",size=12, face="bold") +
   theme(axis.title.y = element_text(size=12, face="bold"),
         axis.text.y = element_text(size=12), 
-        axis.text.x = element_text(color = NAM_colors, size=10, angle=35, vjust=1, hjust=0.95),
+        axis.text.x = element_text(color = NAM_colors, size=8, angle=35, vjust=1, hjust=0.95),
         legend.text = element_text(size=12),
         legend.title=element_blank()) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
@@ -3154,7 +3154,7 @@ LTR_tropbig_tissue_plot2
 ####################################
 # main figures
 ## Figure 
-pdf("Figure 0.pdf", width=10,height=6,pointsize=12, paper='special')
+pdf("Figure 0.pdf", width=10,height=5,pointsize=12, paper='special')
 plot_spacer() + repeats_pcnt_plot
 dev.off()
 

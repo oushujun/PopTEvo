@@ -127,10 +127,15 @@ rename_supfam = list("Gypsy_LTR_retrotransposon"="LTR/Ty3",
                      "low_complexity"="low_complexity",
                      'tRNA_SINE_retrotransposon'='SINE/tRNA')
 
-
 ####################################
 #### Genome-level TE size stats ####
 ####################################
+# import species
+genome_info = read.csv('ncbi_dataset.50.csv')
+genome_info$Assembly.Accession = sub('\\.[0-9]+', '', genome_info$Assembly.Accession)
+LAI = read.table('Arabidopsis.panEDTA.LAI', header = F)
+names(LAI) = c('genome', 'start', 'size', 'intact', 'total', 'rawLAI', 'LAI')
+
 ## percent TE in assembly
 repeats = read.table('Arabidopsis.panEDTA.TE.anno.pcnt.txt', header=T, fill = T)
 repeats$Ty3 = repeats$Gypsy #convert supfam name
@@ -156,21 +161,31 @@ repeats_final$variable = factor(repeats_final$variable,
                                 levels = c("nonTE", "hAT", "CACTA", "PIF_Harbinger", "Mutator", 
                                            "Tc1_Mariner", "helitron", "nonLTR", 
                                            "LTR_unknown", "Ty3", "Copia"))
+repeats_final$species = as.factor(genome_info$Organism.Name[match(repeats_final$Genome, genome_info$Assembly.Accession)])
 
+# reorder plotting order
+repeats_final$Genome = factor(repeats_final$Genome, levels = genome_info$Assembly.Accession)
+repeats_final$LAI = LAI$LAI[match(repeats_final$Genome, LAI$genome)]
 repeats_pcnt_plot = repeats_final %>%
-  ggplot(aes(x = Genome, y = value, fill = variable)) + 
-  geom_bar(stat = "identity",colour="black") +
+  ggplot() + 
+  geom_bar(aes(x = Genome, y = value, fill = variable), stat = "identity",colour="black") +
+  geom_point(aes(x = Genome, y = LAI)) +
   scale_fill_manual(values=TE_colors) +
-  scale_y_continuous(breaks = seq(0, 35, by = 5)) +
-  labs(x =" ", y = "Repeat length (%)",size=12, face="bold") +
+  scale_y_continuous(breaks = seq(0, 35, by = 5), 
+                     sec.axis = sec_axis(~ ., name="LTR Assembly Index", breaks = seq(0, 35, by = 5))) +
+  geom_point(aes(y = -1, x = Genome, shape = species), size = 2) +
+  scale_shape_manual(values=0:nlevels(repeats_final$Genome)) +
+  labs(x =" ", y = "Repeat content (%)",size=12, face="bold") +
   theme(axis.title.y = element_text(size=12, face="bold"),
         axis.text.y = element_text(size=12), 
         axis.text.x = element_text(size=10, angle=35, vjust=1, hjust=0.95),
         legend.text = element_text(size=12),
         legend.title=element_blank()) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
-  theme(legend.position="top")
+        panel.background = element_blank(), axis.line = element_line(colour = "black"),
+        legend.position="top", legend.box="vertical", 
+        legend.margin=margin(), legend.text = element_text(size=10),
+        plot.margin = margin(10, 10, 10, 25))
 repeats_pcnt_plot
 
 ## total TE bp in assembly
@@ -210,8 +225,8 @@ intact_pcntTE_plot = intact_pcntTE_final %>%
   ggplot(aes(x = Genome, y = value, fill = variable)) + 
   geom_bar(stat = "identity", color="black") +
   scale_fill_manual(values=c("#92C5DE", "gray")) +
-  labs(x =" ", y = "TE length (%)",size=14, face="bold") +
-  theme(axis.title.y = element_text(size=20, face="bold"),
+  labs(x =" ", y = "TE length (%)",size=12, face="bold") +
+  theme(axis.title.y = element_text(size=12, face="bold"),
         axis.text.y = element_text(size=12), 
         axis.text.x = element_text(size=10, angle=35, vjust=1, hjust=0.95),
         legend.text = element_text(size=12),
@@ -221,3 +236,9 @@ intact_pcntTE_plot = intact_pcntTE_final %>%
   theme(legend.position="top")
 intact_pcntTE_plot
 
+
+
+## Plot Figure to file
+pdf("Suppl Figure x.pdf", width=11,height=8,pointsize=12, paper='special')
+repeats_pcnt_plot
+dev.off()
