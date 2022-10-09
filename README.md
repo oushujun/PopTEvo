@@ -2,9 +2,9 @@
 Study of TE evolution in a population of genomes
 
 Contents
- - TE_annotation: panEDTA annotation of NAM genomes
-  * bin: scripts to summarize panEDTA annotations
-  * data: 
+ \- TE_annotation: panEDTA annotation of NAM genomes
+  \* bin: scripts to summarize panEDTA annotations
+  \* data: 
    + B73v5.NAM-illumina_filtered-pass-only-two-round-gatk-snps.homo.chr.gt.pres.25k.h: 25k NAM SNPs using B73v5 as the reference
    + NAM.EDTA1.9.0.MTEC02052020.TE.v1.anno.intact.LTR.sort.gz: Intact LTR superfamily classification based on TEsorter
    + NAM.EDTA2.0.0.MTEC02052020.TElib.fa: panEDTA library generated for NAM genomes
