@@ -1,8 +1,8 @@
 # PopTEvo
 Study of TE evolution in a population of genomes
 
-Contents
- \- TE_annotation: panEDTA annotation of NAM genomes
+# Contents
+ ## TE_annotation: panEDTA annotation of NAM genomes
   \* bin: scripts to summarize panEDTA annotations
   \* data: 
    + B73v5.NAM-illumina_filtered-pass-only-two-round-gatk-snps.homo.chr.gt.pres.25k.h: 25k NAM SNPs using B73v5 as the reference
@@ -13,7 +13,7 @@ Contents
    + soloLTR.txt: All solo LTRs found in NAM
    + TE_Fam_stats.txt: Statistics and descriptions of pangenome TE families
    + individual_genomes: panEDTA annotation results generated for each NAM genome
- - panTE: population genomics of intact LTR elements
+ ## panTE: population genomics of intact LTR elements
   * 1.pairwise: identification of syntenic LTRs between any two NAM genomes
    + bin: scripts to identify pairwise syntenic LTRs
    + data: syntenic LTR information for each genome pair
