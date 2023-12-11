@@ -36,6 +36,14 @@ Study of TE evolution in a population of genomes
   * scripts: scripts to map short reads to each genome
   * TEexpression: scripts to generate per-family read counts
   * data: raw count data for each TE family in each RNA library
+ ### NLR_analyses
+ LTR neighborhoods of NLR genes
+  * nlrannotator: Annotating NLR genes in the NAM genomes
+  * ltr: LTR annotation for each NAM line used for the analysis
+  * clustering: Clustering of NLR genes and background genes based on physical distance
+  * nlr_neighborhood_age: Analysis of young and old LTRs in the neighborhoods of foreground and background gene sets
+  * nlr_neighborhood_amplified: Analysis of tropical-amplifying and not tropical-amplifying LTRs in the neighborhoods of foreground and background gene sets in tropical and temperate NAM lines
+  * plots: Pre-computed results tables and plotting script for visualising the main results
  ### TE_fam_clean2.R
  R commands to compile all data (except expression) and generate most figures
  ### TE_fam_exp_clean.R
